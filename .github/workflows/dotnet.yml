@@ -50,7 +50,7 @@ jobs:
       with:
         name: streamstruct-${{ github.sha }}
         path: |
-          - ./packages/*
+          - packages/*
     
     - name: Upload NuGet packages
       id: upload-nuget
