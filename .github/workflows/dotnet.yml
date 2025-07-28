@@ -42,7 +42,7 @@ jobs:
       run: ls -la ./packages/
     
     - name: Publish
-      run: dotnet publish ${{ env.PROJECT_PATH }} --configuration Release
+      run: dotnet publish ${{ env.PROJECT_PATH }} --configuration Release --output ./publish
     
     - name: Upload build artifacts
       id: upload
@@ -50,7 +50,8 @@ jobs:
       with:
         name: streamstruct-${{ github.sha }}
         path: |
-          - packages/*
+          - ./publish/*
+          - ./packages/*
     
     - name: Upload NuGet packages
       id: upload-nuget
