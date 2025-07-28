@@ -41,8 +41,8 @@ jobs:
     - name: Publish to NuGet
       if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
       run: |
-        dotnet nuget push ${{ github.workspace }}/packages/*.nupkg -k NUGET_API_KEY -s https://api.nuget.org/v3/index.json
-        dotnet nuget push ${{ github.workspace }}/packages/*.snupkg -k NUGET_API_KEY -s https://api.nuget.org/v3/index.json
+        dotnet nuget push ${{ github.workspace }}/packages/*.nupkg -k $NUGET_API_KEY -s https://api.nuget.org/v3/index.json
+        dotnet nuget push ${{ github.workspace }}/packages/*.snupkg -k $NUGET_API_KEY -s https://api.nuget.org/v3/index.json
       env:
         NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
 
