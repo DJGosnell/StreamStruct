@@ -4,7 +4,10 @@ internal class StreamFieldDefinition
 {
     public string Name { get; set; } = string.Empty;
     public string TypeOrLength { get; set; } = string.Empty;
-    public bool IsVariableLength => !IsFixedType(TypeOrLength);
+    public int? FixedCount { get; set; }
+    public bool IsVariableLength => !IsFixedType(TypeOrLength) && FixedCount == null;
+    public bool IsFixedArray => FixedCount.HasValue;
+    public string BaseType => IsFixedArray ? TypeOrLength : TypeOrLength;
 
     private static bool IsFixedType(string type)
     {

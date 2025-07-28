@@ -7,6 +7,7 @@ A .NET library for parsing and processing structured binary data from streams us
 - **Type-safe parsing** of binary streams using intuitive field definitions
 - **Bidirectional communication** support for client-server scenarios
 - **Variable-length fields** with dynamic sizing based on previously parsed values
+- **Field validation** including duplicate field name detection and reserved name checking
 - **Comprehensive error handling** with detailed error codes and messages
 - **Async/await support** throughout the API
 
@@ -26,11 +27,12 @@ var stream = new EchoMemoryStream();
 var processor = new StreamFieldProcessor(stream);
 
 // Define the structure: [fieldName:type]
-var definition = "[id:int][name_length:byte][name:name_length]";
+var definition = "[id:int][name_length:byte][name:name_length][flags:int:8]";
 
 // Write structured data
 var data = "Alice"u8.ToArray();
-await processor.WriteAsync(definition, [42, (byte)data.Length, data]);
+var flagIds = new[] { 1,2,3,4 };
+await processor.WriteAsync(definition, [42, (byte)data.Length, data, flagIds]);
 
 // Read it back
 var result = await processor.ReadAsync(definition);
@@ -40,6 +42,7 @@ if (result.Success)
     result.TryRead<byte>("name_length", out var nameLength); // 5
     result.TryRead<byte[]>("name", out var nameBytes); // 5
     result.TryReadUtf8("name", out var nameData); // Alice
+    result.TryRead<int[]>("flags", out var flagIdData); // [1,2,3,4]
 }
 ```
 
@@ -75,6 +78,29 @@ Fields are defined using the format: `[fieldName:typeOrLength]`
 - `[count:byte]` - An 8-bit unsigned integer field named "count"  
 - `[data:count]` - A variable-length byte array whose size is determined by the "count" field
 - `[temperature:float]` - A 32-bit floating-point field named "temperature"
+
+## Field Validation
+
+StreamStruct performs comprehensive validation of field definitions to ensure data integrity:
+
+### Duplicate Field Names
+Field names must be unique within a stream definition. Duplicate field names are automatically detected and rejected:
+
+```csharp
+// ❌ This will fail with ParseError.DuplicateFieldName
+var result = await processor.ReadAsync("[id:int][name:byte][id:float]");
+```
+
+### Reserved Field Names
+Field names cannot use reserved type names (`byte`, `int`, `float`, etc.) to prevent conflicts:
+
+```csharp
+// ❌ This will fail with ParseError.ReservedFieldName  
+var result = await processor.ReadAsync("[int:byte]");
+```
+
+### Error Handling
+When validation fails, `ParseResult` provides detailed error information via `ErrorCode` and `ErrorMessage` properties.
 
 ## Bidirectional Communication
 

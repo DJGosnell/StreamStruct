@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+
 namespace StreamStruct.Tests;
 
 [TestFixture]
@@ -34,6 +36,27 @@ public class StreamFieldProcessorTests
         Assert.That(readResult.Success, Is.True);
         Assert.That(readResult.TryRead<int>(0, out var value), Is.True);
         Assert.That(value, Is.EqualTo(42));
+    }
+    
+    [Test]
+    public async Task WriteAndRead_FixedLengthByteArray_ShouldSucceed()
+    {
+        var definition = "[value:byte:100][integers:int:5]";
+
+        var data = new byte[100];
+        var intData = new[] { 1, 2, 3, 4, 5 };
+        RandomNumberGenerator.Fill(data);
+
+        var writeResult =
+            await _serverParser!.WriteAsync(definition, [data, intData]).WithTimeout();
+        Assert.That(writeResult, Is.True);
+
+        var readResult = await _clientParser!.ReadAsync(definition).WithTimeout();
+        Assert.That(readResult.Success, Is.True);
+        Assert.That(readResult.TryRead<byte[]>("value", out var value), Is.True);
+        Assert.That(readResult.TryRead<int[]>("integers", out var integers), Is.True);
+        Assert.That(value, Is.EqualTo(data));
+        Assert.That(integers, Is.EqualTo(intData));
     }
 
     [Test]
@@ -684,6 +707,57 @@ public class StreamFieldProcessorTests
             Assert.That(readResult.ErrorCode, Is.EqualTo(ParseError.ReservedFieldName), $"Definition '{definition}' should return ReservedFieldName error");
             Assert.That(readResult.ErrorMessage, Contains.Substring("Field name cannot be a reserved type name"), $"Definition '{definition}' should have correct error message");
         }
+    }
+
+    [Test]
+    public async Task ReadAsync_DuplicateFieldName_ShouldFail()
+    {
+        var definitions = new[]
+        {
+            "[field:int][field:byte]",
+            "[value:int][data:byte][value:short]",
+            "[id:int][name:int][id:float]",
+            "[test:byte][other:int][test:long]",
+            "[a:int][b:int][c:int][a:byte]"
+        };
+
+        foreach (var definition in definitions)
+        {
+            var readResult = await _clientParser!.ReadAsync(definition).WithTimeout();
+            Assert.That(readResult.Success, Is.False, $"Definition '{definition}' should fail due to duplicate field name");
+            Assert.That(readResult.ErrorCode, Is.EqualTo(ParseError.DuplicateFieldName), $"Definition '{definition}' should return DuplicateFieldName error");
+            Assert.That(readResult.ErrorMessage, Contains.Substring("Duplicate field name found in stream definition"), $"Definition '{definition}' should have correct error message");
+        }
+    }
+
+    [Test]
+    public async Task WriteAsync_DuplicateFieldName_ShouldFail()
+    {
+        var definition = "[value:int][value:byte]";
+        var data = new object[] { 42, (byte)255 };
+        
+        var writeResult = await _serverParser!.WriteAsync(definition, data).WithTimeout();
+        Assert.That(writeResult, Is.False, "Write with duplicate field names should fail");
+    }
+
+    [Test]
+    public async Task ReadAsync_DuplicateFieldNameWithVariableLength_ShouldFail()
+    {
+        var definition = "[length:int][data:length][length:byte]";
+        
+        var readResult = await _clientParser!.ReadAsync(definition).WithTimeout();
+        Assert.That(readResult.Success, Is.False, "Definition with duplicate field name should fail");
+        Assert.That(readResult.ErrorCode, Is.EqualTo(ParseError.DuplicateFieldName), "Should return DuplicateFieldName error");
+    }
+
+    [Test]
+    public async Task ReadAsync_DuplicateFieldNameWithFixedArray_ShouldFail()
+    {
+        var definition = "[array:int:5][array:byte]";
+        
+        var readResult = await _clientParser!.ReadAsync(definition).WithTimeout();
+        Assert.That(readResult.Success, Is.False, "Definition with duplicate field name should fail");
+        Assert.That(readResult.ErrorCode, Is.EqualTo(ParseError.DuplicateFieldName), "Should return DuplicateFieldName error");
     }
 
     [Test]
