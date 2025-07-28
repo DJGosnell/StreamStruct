@@ -36,16 +36,16 @@ jobs:
       run: dotnet test ${{ env.TEST_PATH }} --configuration Release --no-build --verbosity normal
     
     - name: Create NuGet packages
-      run: dotnet pack ${{ env.PROJECT_PATH }} --configuration Release --output ./packages
+      run: dotnet pack ${{ env.PROJECT_PATH }} --configuration Release --output ${{ github.workspace }}/packages
     
     - name: Publish
-      run: dotnet publish ${{ env.PROJECT_PATH }} --configuration Release --output ./publish
+      run: dotnet publish ${{ env.PROJECT_PATH }} --configuration Release --output ${{ github.workspace }}/publish
 
     - name: List published files
-      run: ls -la ./publish/
+      run: ls -la ${{ github.workspace }}/publish/
 
     - name: List package files
-      run: ls -la ./packages/
+      run: ls -la ${{ github.workspace }}/packages/
 
     - name: List all files
       run: ls -la .
