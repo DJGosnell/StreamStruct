@@ -27,7 +27,7 @@ var stream = new EchoMemoryStream();
 var processor = new StreamFieldProcessor(stream);
 
 // Define the structure: [fieldName:type]
-var definition = "[id:int][name_length:byte][name:name_length][flags:int:8]";
+var definition = "[id:int][name_length:byte][name:name_length][flags:int:4]";
 
 // Write structured data
 var data = "Alice"u8.ToArray();
