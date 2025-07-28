@@ -56,8 +56,8 @@ jobs:
       with:
         name: streamstruct-${{ github.sha }}
         path: |
-          - ./publish/*
-          - ./packages/*
+          - ${{ github.workspace }}/publish/*
+          - ${{ github.workspace }}/packages/*
     
     - name: Upload NuGet packages
       id: upload-nuget
