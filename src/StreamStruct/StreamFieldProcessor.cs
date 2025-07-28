@@ -2,16 +2,31 @@ using System.Text.RegularExpressions;
 
 namespace StreamStruct;
 
+/// <summary>
+/// Processes structured binary data from streams using field definition syntax.
+/// Supports reading from and writing to streams with type-safe field parsing.
+/// </summary>
 public class StreamFieldProcessor
 {
     private static readonly Regex FieldPattern = new(@"\[([^:\]]+):([^:\]]+)(?::([^:\]]+))?\]", RegexOptions.Compiled);
     private readonly Stream _stream;
 
+    /// <summary>
+    /// Initializes a new instance of the StreamFieldProcessor class with the specified stream.
+    /// </summary>
+    /// <param name="stream">The stream to read from and write to.</param>
+    /// <exception cref="ArgumentNullException">Thrown when stream is null.</exception>
     public StreamFieldProcessor(Stream stream)
     {
         _stream = stream ?? throw new ArgumentNullException(nameof(stream));
     }
 
+    /// <summary>
+    /// Asynchronously reads structured data from the stream using the specified field definition.
+    /// </summary>
+    /// <param name="streamDefinition">The field definition string in format [fieldName:type] or [fieldName:type:count].</param>
+    /// <param name="cancellationToken">A cancellation token to cancel the operation.</param>
+    /// <returns>A ParseResult containing the parsed data or error information.</returns>
     public async Task<ParseResult> ReadAsync(string streamDefinition, CancellationToken cancellationToken = default)
     {
         var (parseError, fields) = ParseStreamDefinition(streamDefinition);
@@ -194,6 +209,13 @@ public class StreamFieldProcessor
         };
     }
 
+    /// <summary>
+    /// Asynchronously writes structured data to the stream using the specified field definition.
+    /// </summary>
+    /// <param name="streamDefinition">The field definition string in format [fieldName:type] or [fieldName:type:count].</param>
+    /// <param name="data">The array of data objects to write, matching the field definitions in order.</param>
+    /// <param name="cancellationToken">A cancellation token to cancel the operation.</param>
+    /// <returns>true if the data was successfully written; otherwise, false.</returns>
     public async Task<bool> WriteAsync(string streamDefinition, object?[] data, CancellationToken cancellationToken = default)
     {
         var (parseError, fields) = ParseStreamDefinition(streamDefinition);
