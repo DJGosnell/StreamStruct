@@ -275,7 +275,9 @@ public class StreamFieldProcessor
                 }
                 else
                 {
-                    var (convertError, bytes) = ConvertToBytes(value, field.TypeOrLength);
+                    // Cast the value to the specified field type before conversion
+                    var castedValue = CastToFieldType(value, field.TypeOrLength);
+                    var (convertError, bytes) = ConvertToBytes(castedValue, field.TypeOrLength);
                     if (convertError != ParseError.Success || bytes == null)
                     {
                         return false;
@@ -294,6 +296,35 @@ public class StreamFieldProcessor
         catch
         {
             return false;
+        }
+    }
+
+    private static object? CastToFieldType(object? value, string type)
+    {
+        if (value == null) return null;
+
+        try
+        {
+            return type.ToLowerInvariant() switch
+            {
+                "byte" => Convert.ToByte(value),
+                "sbyte" => Convert.ToSByte(value),
+                "short" => Convert.ToInt16(value),
+                "ushort" => Convert.ToUInt16(value),
+                "int" => Convert.ToInt32(value),
+                "uint" => Convert.ToUInt32(value),
+                "long" => Convert.ToInt64(value),
+                "ulong" => Convert.ToUInt64(value),
+                "float" => Convert.ToSingle(value),
+                "double" => Convert.ToDouble(value),
+                "char" => Convert.ToChar(value),
+                "bool" => Convert.ToBoolean(value),
+                _ => value
+            };
+        }
+        catch
+        {
+            return value;
         }
     }
 

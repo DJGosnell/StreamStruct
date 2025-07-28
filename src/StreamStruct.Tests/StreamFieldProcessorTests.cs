@@ -1086,4 +1086,162 @@ public class StreamFieldProcessorTests
             Assert.That(checksum, Is.EqualTo(expectedChecksum), $"Checksum {i + 1} should match");
         }
     }
+
+    [Test]
+    public async Task WriteAsync_TypeCasting_IntegerToVariousTypes_ShouldSucceed()
+    {
+        // Test that integer values can be cast to various numeric types
+        var definition = "[b:byte][sb:sbyte][s:short][us:ushort][i:int][ui:uint][l:long][ul:ulong][f:float][d:double]";
+        var data = new object[] { 
+            42,           // int to byte
+            -42,          // int to sbyte  
+            1000,         // int to short
+            2000,         // int to ushort
+            (short)42,    // short to int 
+            42,           // uint to uint 
+            42,           // int to long
+            42,           // int to ulong 
+            42,           // int to float
+            42            // int to double
+        };
+
+        var writeResult = await _serverParser!.WriteAsync(definition, data).WithTimeout();
+        Assert.That(writeResult, Is.True);
+
+        var readResult = await _clientParser!.ReadAsync(definition).WithTimeout();
+        Assert.That(readResult.Success, Is.True);
+        
+        Assert.That(readResult.TryRead<byte>(0, out var b), Is.True);
+        Assert.That(readResult.TryRead<sbyte>(1, out var sb), Is.True);
+        Assert.That(readResult.TryRead<short>(2, out var s), Is.True);
+        Assert.That(readResult.TryRead<ushort>(3, out var us), Is.True);
+        Assert.That(readResult.TryRead<int>(4, out var i), Is.True);
+        Assert.That(readResult.TryRead<uint>(5, out var ui), Is.True);
+        Assert.That(readResult.TryRead<long>(6, out var l), Is.True);
+        Assert.That(readResult.TryRead<ulong>(7, out var ul), Is.True);
+        Assert.That(readResult.TryRead<float>(8, out var f), Is.True);
+        Assert.That(readResult.TryRead<double>(9, out var d), Is.True);
+
+        Assert.That(b, Is.EqualTo((byte)42));
+        Assert.That(sb, Is.EqualTo((sbyte)-42));
+        Assert.That(s, Is.EqualTo((short)1000));
+        Assert.That(us, Is.EqualTo((ushort)2000));
+        Assert.That(i, Is.EqualTo(42));
+        Assert.That(ui, Is.EqualTo(42u));
+        Assert.That(l, Is.EqualTo(42L));
+        Assert.That(ul, Is.EqualTo(42ul));
+        Assert.That(f, Is.EqualTo(42.0f));
+        Assert.That(d, Is.EqualTo(42.0));
+    }
+
+    [Test]
+    public async Task WriteAsync_TypeCasting_StringToChar_ShouldSucceed()
+    {
+        // Test that single character strings can be cast to char
+        var definition = "[c1:char][c2:char]";
+        var data = new object[] { "A", "Z" };
+
+        var writeResult = await _serverParser!.WriteAsync(definition, data).WithTimeout();
+        Assert.That(writeResult, Is.True);
+
+        var readResult = await _clientParser!.ReadAsync(definition).WithTimeout();
+        Assert.That(readResult.Success, Is.True);
+        
+        Assert.That(readResult.TryRead<char>(0, out var c1), Is.True);
+        Assert.That(readResult.TryRead<char>(1, out var c2), Is.True);
+        Assert.That(c1, Is.EqualTo('A'));
+        Assert.That(c2, Is.EqualTo('Z'));
+    }
+
+    [Test]
+    public async Task WriteAsync_TypeCasting_NumericStringToNumber_ShouldSucceed()
+    {
+        // Test that numeric strings can be cast to numeric types
+        var definition = "[i:int][f:float][d:double][b:bool]";
+        var data = new object[] { "123", "3.14", "2.718", "true" };
+
+        var writeResult = await _serverParser!.WriteAsync(definition, data).WithTimeout();
+        Assert.That(writeResult, Is.True);
+
+        var readResult = await _clientParser!.ReadAsync(definition).WithTimeout();
+        Assert.That(readResult.Success, Is.True);
+        
+        Assert.That(readResult.TryRead<int>(0, out var i), Is.True);
+        Assert.That(readResult.TryRead<float>(1, out var f), Is.True);
+        Assert.That(readResult.TryRead<double>(2, out var d), Is.True);
+        Assert.That(readResult.TryRead<bool>(3, out var b), Is.True);
+        
+        Assert.That(i, Is.EqualTo(123));
+        Assert.That(f, Is.EqualTo(3.14f).Within(0.001));
+        Assert.That(d, Is.EqualTo(2.718).Within(0.001));
+        Assert.That(b, Is.True);
+    }
+
+    [Test]
+    public async Task WriteAsync_TypeCasting_FloatToInteger_ShouldSucceed()
+    {
+        // Test that floating point values can be cast to integer types (truncation)
+        var definition = "[i1:int][i2:int][b:byte][s:short]";  
+        var data = new object[] { 42.0f, 123.0, 200.0f, 1000.0 };
+
+        var writeResult = await _serverParser!.WriteAsync(definition, data).WithTimeout();
+        Assert.That(writeResult, Is.True);
+
+        var readResult = await _clientParser!.ReadAsync(definition).WithTimeout();
+        Assert.That(readResult.Success, Is.True);
+        
+        Assert.That(readResult.TryRead<int>(0, out var i1), Is.True);
+        Assert.That(readResult.TryRead<int>(1, out var i2), Is.True);
+        Assert.That(readResult.TryRead<byte>(2, out var b), Is.True);
+        Assert.That(readResult.TryRead<short>(3, out var s), Is.True);
+        
+        Assert.That(i1, Is.EqualTo(42));
+        Assert.That(i2, Is.EqualTo(123));
+        Assert.That(b, Is.EqualTo((byte)200));
+        Assert.That(s, Is.EqualTo((short)1000));
+    }
+
+    [Test]
+    public async Task WriteAsync_TypeCasting_BooleanConversions_ShouldSucceed()
+    {
+        // Test various values converted to boolean
+        var definition = "[b1:bool][b2:bool][b3:bool][b4:bool]"; 
+        var data = new object[] { 1, 0, "false", "True" };
+
+        var writeResult = await _serverParser!.WriteAsync(definition, data).WithTimeout();
+        Assert.That(writeResult, Is.True);
+
+        var readResult = await _clientParser!.ReadAsync(definition).WithTimeout();
+        Assert.That(readResult.Success, Is.True);
+        
+        Assert.That(readResult.TryRead<bool>(0, out var b1), Is.True);
+        Assert.That(readResult.TryRead<bool>(1, out var b2), Is.True);
+        Assert.That(readResult.TryRead<bool>(2, out var b3), Is.True);
+        Assert.That(readResult.TryRead<bool>(3, out var b4), Is.True);
+        
+        Assert.That(b1, Is.True);   // 1 -> true
+        Assert.That(b2, Is.False);  // 0 -> false  
+        Assert.That(b3, Is.False);  // "false" -> false
+        Assert.That(b4, Is.True);   // "True" -> true
+    }
+
+    [Test]
+    public async Task WriteAsync_TypeCasting_VariableLengthNotCasted_ShouldSucceed()
+    {
+        // Test that variable length fields (byte arrays) are not cast
+        var definition = "[length:int][data:length]";
+        var testData = new byte[] { 1, 2, 3, 4, 5 };
+        var data = new object[] { testData.Length, testData };
+
+        var writeResult = await _serverParser!.WriteAsync(definition, data).WithTimeout();
+        Assert.That(writeResult, Is.True);
+
+        var readResult = await _clientParser!.ReadAsync(definition).WithTimeout();
+        Assert.That(readResult.Success, Is.True);
+        
+        Assert.That(readResult.TryRead<int>(0, out var length), Is.True);
+        Assert.That(readResult.TryRead<byte[]>(1, out var receivedData), Is.True);
+        Assert.That(length, Is.EqualTo(5));
+        Assert.That(receivedData, Is.EqualTo(testData));
+    }
 }

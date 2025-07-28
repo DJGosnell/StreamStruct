@@ -7,6 +7,7 @@ A .NET library for parsing and processing structured binary data from streams us
 ## Features
 
 - **Type-safe parsing** of binary streams using intuitive field definitions
+- **Automatic type casting** for flexible data input with type safety
 - **Bidirectional communication** support for client-server scenarios
 - **Variable-length fields** with dynamic sizing based on previously parsed values
 - **Field validation** including duplicate field name detection and reserved name checking
@@ -85,7 +86,49 @@ await processor.WriteAsync(definition, [(ushort)messageBytes.Length, "Hello, Wor
 var result = await processor.ReadAsync("[value:int]");
 if (result.TryRead<int>(0, out var value))
     Console.WriteLine($"Read integer: {value}");
+```
 
+## Automatic Type Casting
+
+StreamStruct automatically casts data to the appropriate field types when writing, providing flexibility while maintaining type safety:
+
+### Flexible Data Input
+
+```csharp
+var definition = "[id:int][score:float][active:bool][grade:char]";
+
+// All of these work - values are automatically cast to field types
+await processor.WriteAsync(definition, [
+    42,         // int -> stays int
+    "85.5",     // string -> float
+    1,          // int -> bool (true)
+    "A"         // string -> char
+]);
+
+// Same as explicitly casting:
+await processor.WriteAsync(definition, [
+    (int)42,
+    (float)85.5,
+    (bool)true,
+    (char)'A'
+]);
+```
+
+### Supported Conversions
+
+- **Numeric types**: Automatic conversion between all numeric types (`int`, `float`, `double`, etc.)
+- **String to primitives**: Numeric strings to numbers, "true"/"false" to booleans
+- **String to char**: Single-character strings to `char`
+- **Boolean conversions**: Numbers (0=false, non-zero=true) and string representations
+
+### Variable-Length Fields Are Not Cast
+
+Variable-length fields (byte arrays) are not subject to type casting and must always be provided as `byte[]`:
+
+```csharp
+var definition = "[length:int][data:length]";
+var data = "Hello"u8.ToArray();  // Must be byte[]
+await processor.WriteAsync(definition, [data.Length, data]);
 ```
 
 ## Field Definition Syntax
