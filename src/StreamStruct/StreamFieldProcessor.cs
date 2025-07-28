@@ -14,10 +14,15 @@ public class StreamFieldProcessor
 
     public async Task<ParseResult> ReadAsync(string streamDefinition, CancellationToken cancellationToken = default)
     {
+        var (parseError, fields) = ParseStreamDefinition(streamDefinition);
+        if (parseError != ParseError.Success)
+        {
+            return ParseResult.CreateFailure(parseError);
+        }
+
         try
         {
-            var fields = ParseStreamDefinition(streamDefinition);
-            var results = new object?[fields.Count];
+            var results = new object?[fields!.Count];
             var parsedValues = new Dictionary<string, object>();
             var fieldIndexes = new Dictionary<string, int>();
 
@@ -30,7 +35,7 @@ public class StreamFieldProcessor
                 {
                     if (!parsedValues.TryGetValue(field.TypeOrLength, out var lengthValue))
                     {
-                        return ParseResult.CreateFailure(ParseError.MissingVariableReference, $"Variable '{field.TypeOrLength}' not found for field '{field.Name}'");
+                        return ParseResult.CreateFailure(ParseError.MissingVariableReference);
                     }
 
                     var length = Convert.ToInt32(lengthValue);
@@ -41,57 +46,33 @@ public class StreamFieldProcessor
                 }
                 else
                 {
-                    var value = await ReadFixedTypeAsync(_stream, field.TypeOrLength, cancellationToken);
+                    var (readError, value) = await ReadFixedTypeAsync(_stream, field.TypeOrLength, cancellationToken);
+                    if (readError != ParseError.Success)
+                    {
+                        return ParseResult.CreateFailure(readError);
+                    }
                     results[i] = value;
-                    parsedValues[field.Name] = value;
+                    parsedValues[field.Name] = value!;
                 }
             }
 
             return ParseResult.CreateSuccess(results, fieldIndexes);
         }
-        catch (ArgumentException ex) when (ex.Message.Contains("Stream definition cannot be null or empty"))
-        {
-            return ParseResult.CreateFailure(ParseError.EmptyDefinition, ex.Message);
-        }
-        catch (ArgumentException ex) when (ex.Message.Contains("mismatched or malformed brackets"))
-        {
-            return ParseResult.CreateFailure(ParseError.MismatchedBrackets, ex.Message);
-        }
-        catch (ArgumentException ex) when (ex.Message.Contains("no valid field patterns found"))
-        {
-            return ParseResult.CreateFailure(ParseError.NoValidFieldPatterns, ex.Message);
-        }
-        catch (ArgumentException ex) when (ex.Message.Contains("Field name cannot be empty"))
-        {
-            return ParseResult.CreateFailure(ParseError.EmptyFieldName, ex.Message);
-        }
-        catch (ArgumentException ex) when (ex.Message.Contains("Type or length cannot be empty"))
-        {
-            return ParseResult.CreateFailure(ParseError.EmptyTypeOrLength, ex.Message);
-        }
-        catch (ArgumentException ex) when (ex.Message.Contains("Unsupported type"))
-        {
-            return ParseResult.CreateFailure(ParseError.UnsupportedType, ex.Message);
-        }
-        catch (ArgumentException ex) when (ex.Message.Contains("Field name cannot be a reserved type name"))
-        {
-            return ParseResult.CreateFailure(ParseError.ReservedFieldName, ex.Message);
-        }
         catch (OperationCanceledException)
         {
             return ParseResult.CreateFailure(ParseError.OperationCancelled);
         }
-        catch (Exception ex)
+        catch
         {
-            return ParseResult.CreateFailure(ParseError.StreamReadError, $"Error parsing stream: {ex.Message}");
+            return ParseResult.CreateFailure(ParseError.StreamReadError);
         }
     }
 
-    private static List<StreamFieldDefinition> ParseStreamDefinition(string definition)
+    private static (ParseError Error, List<StreamFieldDefinition>? Fields) ParseStreamDefinition(string definition)
     {
         if (string.IsNullOrWhiteSpace(definition))
         {
-            throw new ArgumentException("Stream definition cannot be null or empty", nameof(definition));
+            return (ParseError.EmptyDefinition, null);
         }
 
         var fields = new List<StreamFieldDefinition>();
@@ -103,11 +84,11 @@ public class StreamFieldProcessor
             // Check for specific field issues before general bracket mismatch
             if (definition.Contains("[:"))
             {
-                throw new ArgumentException("Field name cannot be empty", nameof(definition));
+                return (ParseError.EmptyFieldName, null);
             }
             if (definition.Contains(":]"))
             {
-                throw new ArgumentException("Type or length cannot be empty", nameof(definition));
+                return (ParseError.EmptyTypeOrLength, null);
             }
             
             // Check for proper bracket pairing (equal [ and ])
@@ -116,11 +97,11 @@ public class StreamFieldProcessor
             
             if (openBrackets != closeBrackets)
             {
-                throw new ArgumentException("Invalid field definition format: mismatched or malformed brackets", nameof(definition));
+                return (ParseError.MismatchedBrackets, null);
             }
             
             // General case - invalid field format with proper brackets
-            throw new ArgumentException("Invalid field definition format: no valid field patterns found", nameof(definition));
+            return (ParseError.NoValidFieldPatterns, null);
         }
 
         // Check for bracket count mismatch (e.g., missing closing bracket)
@@ -129,7 +110,7 @@ public class StreamFieldProcessor
         
         if (bracketCount != matchedBrackets && bracketCount > 0)
         {
-            throw new ArgumentException("Invalid field definition format: mismatched or malformed brackets", nameof(definition));
+            return (ParseError.MismatchedBrackets, null);
         }
 
         // Process matched fields
@@ -140,17 +121,17 @@ public class StreamFieldProcessor
 
             if (string.IsNullOrWhiteSpace(fieldName))
             {
-                throw new ArgumentException("Field name cannot be empty", nameof(definition));
+                return (ParseError.EmptyFieldName, null);
             }
 
             if (StreamFieldDefinition.IsReservedTypeName(fieldName))
             {
-                throw new ArgumentException($"Field name cannot be a reserved type name: '{fieldName}'", nameof(definition));
+                return (ParseError.ReservedFieldName, null);
             }
 
             if (string.IsNullOrWhiteSpace(typeOrLength))
             {
-                throw new ArgumentException($"Type or length cannot be empty for field '{fieldName}'", nameof(definition));
+                return (ParseError.EmptyTypeOrLength, null);
             }
 
             fields.Add(new StreamFieldDefinition
@@ -160,37 +141,44 @@ public class StreamFieldProcessor
             });
         }
 
-        return fields;
+        return (ParseError.Success, fields);
     }
 
     public async Task<bool> WriteAsync(string streamDefinition, object?[] data, CancellationToken cancellationToken = default)
     {
+        var (parseError, fields) = ParseStreamDefinition(streamDefinition);
+        if (parseError != ParseError.Success || fields == null)
+        {
+            return false;
+        }
+
+        if (data == null)
+        {
+            return false;
+        }
+        
+        if (fields.Count != data.Length)
+        {
+            return false;
+        }
+
+        // Validate variable length references exist
+        var availableFields = new HashSet<string>();
+        for (int i = 0; i < fields.Count; i++)
+        {
+            var field = fields[i];
+            if (field.IsVariableLength)
+            {
+                if (!availableFields.Contains(field.TypeOrLength))
+                {
+                    return false;
+                }
+            }
+            availableFields.Add(field.Name);
+        }
+
         try
         {
-            var fields = ParseStreamDefinition(streamDefinition);
-            
-            if (fields.Count != data.Length)
-            {
-                throw new ArgumentException($"Data array length ({data.Length}) does not match field count ({fields.Count})");
-            }
-
-            // Validate variable length references exist
-            var availableFields = new HashSet<string>();
-            for (int i = 0; i < fields.Count; i++)
-            {
-                var field = fields[i];
-                if (field.IsVariableLength)
-                {
-                    if (!availableFields.Contains(field.TypeOrLength))
-                    {
-                        throw new ArgumentException($"Variable length field '{field.Name}' references undefined field '{field.TypeOrLength}'");
-                    }
-                }
-                availableFields.Add(field.Name);
-            }
-
-            var writtenValues = new Dictionary<string, object?>();
-
             for (int i = 0; i < fields.Count; i++)
             {
                 var field = fields[i];
@@ -198,26 +186,29 @@ public class StreamFieldProcessor
 
                 if (field.IsVariableLength)
                 {
-                    if (value is byte[] byteArray)
+                    if (value is not byte[] byteArray)
                     {
-                        await _stream.WriteAsync(byteArray, cancellationToken);
-                        writtenValues[field.Name] = byteArray;
+                        return false;
                     }
-                    else
-                    {
-                        throw new ArgumentException($"Field '{field.Name}' expects byte array but got {value?.GetType().Name ?? "null"}");
-                    }
+                    await _stream.WriteAsync(byteArray, cancellationToken);
                 }
                 else
                 {
-                    var bytes = ConvertToBytes(value, field.TypeOrLength);
+                    var (convertError, bytes) = ConvertToBytes(value, field.TypeOrLength);
+                    if (convertError != ParseError.Success || bytes == null)
+                    {
+                        return false;
+                    }
                     await _stream.WriteAsync(bytes, cancellationToken);
-                    writtenValues[field.Name] = value;
                 }
             }
 
             await _stream.FlushAsync(cancellationToken);
             return true;
+        }
+        catch (OperationCanceledException)
+        {
+            return false;
         }
         catch
         {
@@ -225,50 +216,79 @@ public class StreamFieldProcessor
         }
     }
 
-    private static byte[] ConvertToBytes(object? value, string type)
+    private static (ParseError Error, byte[]? Bytes) ConvertToBytes(object? value, string type)
     {
         if (value == null)
-            throw new ArgumentNullException(nameof(value));
-
-        return type.ToLowerInvariant() switch
         {
-            "byte" => [(byte)value],
-            "sbyte" => [(byte)(sbyte)value],
-            "short" => BitConverter.GetBytes((short)value),
-            "ushort" => BitConverter.GetBytes((ushort)value),
-            "int" => BitConverter.GetBytes((int)value),
-            "uint" => BitConverter.GetBytes((uint)value),
-            "long" => BitConverter.GetBytes((long)value),
-            "ulong" => BitConverter.GetBytes((ulong)value),
-            "float" => BitConverter.GetBytes((float)value),
-            "double" => BitConverter.GetBytes((double)value),
-            "char" => BitConverter.GetBytes((char)value),
-            "bool" => BitConverter.GetBytes((bool)value),
-            _ => throw new ArgumentException($"Unsupported type: {type}")
-        };
+            return (ParseError.NullValue, null);
+        }
+
+        try
+        {
+            var bytes = type.ToLowerInvariant() switch
+            {
+                "byte" => [(byte)value],
+                "sbyte" => [(byte)(sbyte)value],
+                "short" => BitConverter.GetBytes((short)value),
+                "ushort" => BitConverter.GetBytes((ushort)value),
+                "int" => BitConverter.GetBytes((int)value),
+                "uint" => BitConverter.GetBytes((uint)value),
+                "long" => BitConverter.GetBytes((long)value),
+                "ulong" => BitConverter.GetBytes((ulong)value),
+                "float" => BitConverter.GetBytes((float)value),
+                "double" => BitConverter.GetBytes((double)value),
+                "char" => BitConverter.GetBytes((char)value),
+                "bool" => BitConverter.GetBytes((bool)value),
+                _ => null
+            };
+            
+            return bytes == null ? (ParseError.UnsupportedType, null) : (ParseError.Success, bytes);
+        }
+        catch
+        {
+            return (ParseError.WrongVariableType, null);
+        }
     }
 
-    private static async Task<object> ReadFixedTypeAsync(Stream stream, string type, CancellationToken cancellationToken)
+    private static async Task<(ParseError Error, object? Value)> ReadFixedTypeAsync(Stream stream, string type, CancellationToken cancellationToken)
     {
-        var typeSize = StreamFieldDefinition.GetTypeSize(type);
-        var buffer = new byte[typeSize];
-        await stream.ReadExactlyAsync(buffer, cancellationToken);
-
-        return type.ToLowerInvariant() switch
+        try
         {
-            "byte" => buffer[0],
-            "sbyte" => (sbyte)buffer[0],
-            "short" => BitConverter.ToInt16(buffer),
-            "ushort" => BitConverter.ToUInt16(buffer),
-            "int" => BitConverter.ToInt32(buffer),
-            "uint" => BitConverter.ToUInt32(buffer),
-            "long" => BitConverter.ToInt64(buffer),
-            "ulong" => BitConverter.ToUInt64(buffer),
-            "float" => BitConverter.ToSingle(buffer),
-            "double" => BitConverter.ToDouble(buffer),
-            "char" => BitConverter.ToChar(buffer),
-            "bool" => BitConverter.ToBoolean(buffer),
-            _ => throw new ArgumentException($"Unsupported type: {type}")
-        };
+            var typeSize = StreamFieldDefinition.GetTypeSize(type);
+            if (typeSize <= 0)
+            {
+                return (ParseError.UnsupportedType, null);
+            }
+            
+            var buffer = new byte[typeSize];
+            await stream.ReadExactlyAsync(buffer, cancellationToken);
+
+            object? value = type.ToLowerInvariant() switch
+            {
+                "byte" => buffer[0],
+                "sbyte" => (sbyte)buffer[0],
+                "short" => BitConverter.ToInt16(buffer),
+                "ushort" => BitConverter.ToUInt16(buffer),
+                "int" => BitConverter.ToInt32(buffer),
+                "uint" => BitConverter.ToUInt32(buffer),
+                "long" => BitConverter.ToInt64(buffer),
+                "ulong" => BitConverter.ToUInt64(buffer),
+                "float" => BitConverter.ToSingle(buffer),
+                "double" => BitConverter.ToDouble(buffer),
+                "char" => BitConverter.ToChar(buffer),
+                "bool" => BitConverter.ToBoolean(buffer),
+                _ => null
+            };
+            
+            return value == null ? (ParseError.UnsupportedType, null) : (ParseError.Success, value);
+        }
+        catch (OperationCanceledException)
+        {
+            return (ParseError.OperationCancelled, null);
+        }
+        catch
+        {
+            return (ParseError.StreamReadError, null);
+        }
     }
 }

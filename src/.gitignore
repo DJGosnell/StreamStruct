@@ -419,3 +419,4 @@ $RECYCLE.BIN/
 
 # NuGet packages
 /packages/
+.claude
