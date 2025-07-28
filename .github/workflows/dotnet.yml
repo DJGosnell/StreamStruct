@@ -37,55 +37,19 @@ jobs:
     
     - name: Create NuGet packages
       run: dotnet pack ${{ env.PROJECT_PATH }} --configuration Release --output ${{ github.workspace }}/packages
-
-    - name: List package files
-      run: ls -la ${{ github.workspace }}/packages/
-
-    - name: List all files
-      run: ls -la .
         
-    - name: Upload NuGet packages
-      id: upload-nuget
-      uses: actions/upload-artifact@v4
-      with:
-        name: nuget-packages-${{ github.sha }}
-        path: ./packages
-
-  release:
-    runs-on: ubuntu-latest
-    needs: build-and-test
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-    steps:
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: ${{ env.DOTNET_VERSION }}
-    
-    - name: Download build artifacts
-      uses: actions/download-artifact@v4
-      with:
-        name: ${{ needs.build-and-test.outputs.artifact-name }}
-        path: ./release
-    
-    - name: Download NuGet packages
-      uses: actions/download-artifact@v4
-      with:
-        name: ${{ needs.build-and-test.outputs.nuget-artifact-name }}
-        path: ./packages
-    
-    - name: List downloaded packages
-      run: ls -la ./packages/
-    
     - name: Publish to NuGet
+      if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
       run: |
-        dotnet nuget push ./packages/*.nupkg --api-key ${{ secrets.NUGET_TOKEN }} --source https://api.nuget.org/v3/index.json --skip-duplicate
-        dotnet nuget push ./packages/*.snupkg --api-key ${{ secrets.NUGET_TOKEN }} --source https://api.nuget.org/v3/index.json --skip-duplicate
-    
+        dotnet nuget push ${{ github.workspace }}/packages/*.nupkg --api-key ${{ secrets.NUGET_TOKEN }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+        dotnet nuget push ${{ github.workspace }}/packages/*.snupkg --api-key ${{ secrets.NUGET_TOKEN }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+
     - name: Create Release
+      if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
       uses: softprops/action-gh-release@v1
       with:
         files: |
-          ./packages/*
+          ${{ github.workspace }}/packages/*
         name: Release ${{ github.ref_name }}
         draft: false
         prerelease: false
