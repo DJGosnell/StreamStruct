@@ -38,11 +38,17 @@ jobs:
     - name: Create NuGet packages
       run: dotnet pack ${{ env.PROJECT_PATH }} --configuration Release --output ./packages
     
-    - name: List package files
-      run: ls -la ./packages/
-    
     - name: Publish
       run: dotnet publish ${{ env.PROJECT_PATH }} --configuration Release --output ./publish
+
+    - name: List published files
+      run: ls -la ./publish/
+
+    - name: List package files
+      run: ls -la ./packages/
+
+    - name: List all files
+      run: ls -la .
     
     - name: Upload build artifacts
       id: upload
