@@ -87,7 +87,7 @@ StreamStruct performs comprehensive validation of field definitions to ensure da
 Field names must be unique within a stream definition. Duplicate field names are automatically detected and rejected:
 
 ```csharp
-// ❌ This will fail with ParseError.DuplicateFieldName
+// This will fail with ParseError.DuplicateFieldName
 var result = await processor.ReadAsync("[id:int][name:byte][id:float]");
 ```
 
@@ -95,7 +95,7 @@ var result = await processor.ReadAsync("[id:int][name:byte][id:float]");
 Field names cannot use reserved type names (`byte`, `int`, `float`, etc.) to prevent conflicts:
 
 ```csharp
-// ❌ This will fail with ParseError.ReservedFieldName  
+// This will fail with ParseError.ReservedFieldName  
 var result = await processor.ReadAsync("[int:byte]");
 ```
 
