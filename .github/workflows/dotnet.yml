@@ -11,7 +11,6 @@ env:
   DOTNET_VERSION: '9.0.x'
   PROJECT_PATH: 'src/StreamStruct/StreamStruct.csproj'
   TEST_PATH: 'src/StreamStruct.Tests/StreamStruct.Tests.csproj'
-  NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
 
 jobs:
   build-and-test:
@@ -42,8 +41,10 @@ jobs:
     - name: Publish to NuGet
       if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
       run: |
-        dotnet nuget push ${{ github.workspace }}/packages/*.nupkg --source https://api.nuget.org/v3/index.json --skip-duplicate
-        dotnet nuget push ${{ github.workspace }}/packages/*.snupkg --source https://api.nuget.org/v3/index.json --skip-duplicate
+        dotnet nuget push ${{ github.workspace }}/packages/*.nupkg -k NUGET_API_KEY -s https://api.nuget.org/v3/index.json
+        dotnet nuget push ${{ github.workspace }}/packages/*.snupkg -k NUGET_API_KEY -s https://api.nuget.org/v3/index.json
+      env:
+        NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
 
     - name: Create Release
       if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
