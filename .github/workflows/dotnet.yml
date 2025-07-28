@@ -37,12 +37,6 @@ jobs:
     
     - name: Create NuGet packages
       run: dotnet pack ${{ env.PROJECT_PATH }} --configuration Release --output ${{ github.workspace }}/packages
-    
-    - name: Publish
-      run: dotnet publish ${{ env.PROJECT_PATH }} --configuration Release --output ${{ github.workspace }}/publish
-
-    - name: List published files
-      run: ls -la ${{ github.workspace }}/publish/
 
     - name: List package files
       run: ls -la ${{ github.workspace }}/packages/
@@ -55,9 +49,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: streamstruct-${{ github.sha }}
-        path: |
-          - ${{ github.workspace }}/publish/*
-          - ${{ github.workspace }}/packages/*
+        path: ${{ github.workspace }}/packages/*
     
     - name: Upload NuGet packages
       id: upload-nuget
