@@ -130,6 +130,7 @@ public class ParseResult
 
     /// <summary>
     /// Attempts to read a value of the specified type from the data array at the given index.
+    /// Supports enum conversion from underlying integral types.
     /// </summary>
     /// <typeparam name="T">The type to cast the value to.</typeparam>
     /// <param name="index">The zero-based index in the data array.</param>
@@ -146,7 +147,32 @@ public class ParseResult
         
         try
         {
-            value = (T?)Data[index];
+            var data = Data[index];
+            
+            // Handle enum conversion
+            if (typeof(T).IsEnum && data != null)
+            {
+                var underlyingType = Enum.GetUnderlyingType(typeof(T));
+                
+                // Check if the data type is compatible with the enum's underlying type
+                if (data.GetType() == underlyingType || 
+                    (data.GetType().IsPrimitive && underlyingType.IsPrimitive))
+                {
+                    try
+                    {
+                        value = (T)Enum.ToObject(typeof(T), data);
+                        return true;
+                    }
+                    catch
+                    {
+                        return false;
+                    }
+                }
+                
+                return false;
+            }
+            
+            value = (T?)data;
             return true;
         }
         catch

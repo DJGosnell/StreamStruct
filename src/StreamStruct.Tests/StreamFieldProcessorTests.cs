@@ -1244,4 +1244,168 @@ public class StreamFieldProcessorTests
         Assert.That(length, Is.EqualTo(5));
         Assert.That(receivedData, Is.EqualTo(testData));
     }
+
+    public enum TestByteEnum : byte
+    {
+        Value1 = 1,
+        Value2 = 2,
+        Value255 = 255
+    }
+
+    public enum TestIntEnum : int
+    {
+        Zero = 0,
+        Positive = 42,
+        Negative = -100,
+        Large = 1000000
+    }
+
+    public enum TestLongEnum : long
+    {
+        Small = 1L,
+        Medium = 1000L,
+        Large = 9223372036854775807L
+    }
+
+    [Test]
+    public async Task TryRead_EnumFromByte_ShouldSucceed()
+    {
+        var definition = "[status:byte]";
+        var data = new object[] { (byte)2 };
+
+        await _serverParser!.WriteAsync(definition, data).WithTimeout();
+        var readResult = await _clientParser!.ReadAsync(definition).WithTimeout();
+
+        Assert.That(readResult.Success, Is.True);
+        Assert.That(readResult.TryRead<TestByteEnum>(0, out var enumValue), Is.True);
+        Assert.That(enumValue, Is.EqualTo(TestByteEnum.Value2));
+    }
+
+    [Test]
+    public async Task TryRead_EnumFromInt_ShouldSucceed()
+    {
+        var definition = "[code:int]";
+        var data = new object[] { 42 };
+
+        await _serverParser!.WriteAsync(definition, data).WithTimeout();
+        var readResult = await _clientParser!.ReadAsync(definition).WithTimeout();
+
+        Assert.That(readResult.Success, Is.True);
+        Assert.That(readResult.TryRead<TestIntEnum>(0, out var enumValue), Is.True);
+        Assert.That(enumValue, Is.EqualTo(TestIntEnum.Positive));
+    }
+
+    [Test]
+    public async Task TryRead_EnumFromLong_ShouldSucceed()
+    {
+        var definition = "[value:long]";
+        var data = new object[] { 1000L };
+
+        await _serverParser!.WriteAsync(definition, data).WithTimeout();
+        var readResult = await _clientParser!.ReadAsync(definition).WithTimeout();
+
+        Assert.That(readResult.Success, Is.True);
+        Assert.That(readResult.TryRead<TestLongEnum>(0, out var enumValue), Is.True);
+        Assert.That(enumValue, Is.EqualTo(TestLongEnum.Medium));
+    }
+
+    [Test]
+    public async Task TryRead_EnumUndefinedValue_ShouldSucceed()
+    {
+        var definition = "[status:byte]";
+        var data = new object[] { (byte)99 };
+
+        await _serverParser!.WriteAsync(definition, data).WithTimeout();
+        var readResult = await _clientParser!.ReadAsync(definition).WithTimeout();
+
+        Assert.That(readResult.Success, Is.True);
+        Assert.That(readResult.TryRead<TestByteEnum>(0, out var enumValue), Is.True);
+        Assert.That(enumValue, Is.EqualTo((TestByteEnum)99));
+    }
+
+    [Test]
+    public async Task TryRead_EnumWithFieldName_ShouldSucceed()
+    {
+        var definition = "[status:byte]";
+        var data = new object[] { (byte)255 };
+
+        await _serverParser!.WriteAsync(definition, data).WithTimeout();
+        var readResult = await _clientParser!.ReadAsync(definition).WithTimeout();
+
+        Assert.That(readResult.Success, Is.True);
+        Assert.That(readResult.TryRead<TestByteEnum>("status", out var enumValue), Is.True);
+        Assert.That(enumValue, Is.EqualTo(TestByteEnum.Value255));
+    }
+
+    [Test]
+    public async Task TryRead_EnumFromIncompatibleType_ShouldFail()
+    {
+        var definition = "[value:byte]";
+        var data = new object[] { (byte)42 };
+
+        await _serverParser!.WriteAsync(definition, data).WithTimeout();
+        var readResult = await _clientParser!.ReadAsync(definition).WithTimeout();
+
+        Assert.That(readResult.Success, Is.True);
+        
+        // Now write string data to the internal Data array to simulate incompatible data
+        var result = ParseResult.CreateSuccess(new object[] { "not a number" }, readResult.FieldIndexes);
+        Assert.That(result.TryRead<TestByteEnum>(0, out var enumValue), Is.False);
+        Assert.That(enumValue, Is.EqualTo(default(TestByteEnum)));
+    }
+
+    [Test]
+    public async Task TryRead_EnumWithNegativeValue_ShouldSucceed()
+    {
+        var definition = "[code:int]";
+        var data = new object[] { -100 };
+
+        await _serverParser!.WriteAsync(definition, data).WithTimeout();
+        var readResult = await _clientParser!.ReadAsync(definition).WithTimeout();
+
+        Assert.That(readResult.Success, Is.True);
+        Assert.That(readResult.TryRead<TestIntEnum>(0, out var enumValue), Is.True);
+        Assert.That(enumValue, Is.EqualTo(TestIntEnum.Negative));
+    }
+
+    [Test]
+    public async Task TryRead_EnumFromDifferentPrimitiveType_ShouldSucceed()
+    {
+        var definition = "[value:short]";
+        var data = new object[] { (short)42 };
+
+        await _serverParser!.WriteAsync(definition, data).WithTimeout();
+        var readResult = await _clientParser!.ReadAsync(definition).WithTimeout();
+
+        Assert.That(readResult.Success, Is.True);
+        Assert.That(readResult.TryRead<TestIntEnum>(0, out var enumValue), Is.True);
+        Assert.That(enumValue, Is.EqualTo(TestIntEnum.Positive));
+    }
+    
+    [Test]
+    public async Task WriteAsync_WritesEnumDirectlyAndCastsWithTryRead()
+    {
+        var definition = "[value:int]";
+
+        await _serverParser!.WriteAsync(definition, [TestIntEnum.Large]).WithTimeout();
+        var readResult = await _clientParser!.ReadAsync(definition).WithTimeout();
+
+        Assert.That(readResult.Success, Is.True);
+        Assert.That(readResult.TryRead<TestIntEnum>(0, out var enumValue), Is.True);
+        Assert.That(enumValue, Is.EqualTo(TestIntEnum.Large));
+    }
+    
+    [Test]
+    public async Task CanWriteAndReadFixedLengthEnum()
+    {
+        var definition = "[value:int:2]";
+
+        await _serverParser!.WriteAsync(definition, [new [] {TestIntEnum.Large, TestIntEnum.Negative}]).WithTimeout();
+        var readResult = await _clientParser!.ReadAsync(definition).WithTimeout();
+
+        Assert.That(readResult.Success, Is.True);
+        Assert.That(readResult.TryRead<TestIntEnum[]>(0, out var enumValue), Is.True);
+        Assert.That(enumValue![0], Is.EqualTo(TestIntEnum.Large));
+        Assert.That(enumValue[1], Is.EqualTo(TestIntEnum.Negative));
+    }
 }
