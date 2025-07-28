@@ -34,12 +34,12 @@ public class EchoMemoryStream : Stream
         return await Task.FromResult(Read(buffer, offset, count));
     }
 
-    public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+    public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
     {
         var tempBuffer = new byte[buffer.Length];
         var bytesRead = Read(tempBuffer, 0, buffer.Length);
         tempBuffer.AsSpan(0, bytesRead).CopyTo(buffer.Span);
-        return bytesRead;
+        return ValueTask.FromResult(bytesRead);
     }
 
     public override void Write(byte[] buffer, int offset, int count)

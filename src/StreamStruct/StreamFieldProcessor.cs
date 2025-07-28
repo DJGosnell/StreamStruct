@@ -1,4 +1,3 @@
-using System.Text;
 using System.Text.RegularExpressions;
 
 namespace StreamStruct;
@@ -190,7 +189,7 @@ public class StreamFieldProcessor
                 availableFields.Add(field.Name);
             }
 
-            var writtenValues = new Dictionary<string, object>();
+            var writtenValues = new Dictionary<string, object?>();
 
             for (int i = 0; i < fields.Count; i++)
             {
