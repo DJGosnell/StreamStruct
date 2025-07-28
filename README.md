@@ -1,5 +1,7 @@
 # StreamStruct
 
+[![.NET](https://github.com/djgosnell/StreamStruct/actions/workflows/dotnet.yml/badge.svg)](https://github.com/djgosnell/StreamStruct/actions/workflows/dotnet.yml)
+
 A .NET library for parsing and processing structured binary data from streams using field definition syntax.
 
 ## Features
@@ -13,7 +15,24 @@ A .NET library for parsing and processing structured binary data from streams us
 
 ## Installation
 
-Add the StreamStruct library to your project
+Install the StreamStruct NuGet package:
+
+### Package Manager Console
+```powershell
+Install-Package StreamStruct
+```
+
+### .NET CLI
+```bash
+dotnet add package StreamStruct
+```
+
+### PackageReference
+```xml
+<PackageReference Include="StreamStruct" />
+```
+
+**NuGet Package**: https://www.nuget.org/packages/StreamStruct/
 
 ## Quick Start
 

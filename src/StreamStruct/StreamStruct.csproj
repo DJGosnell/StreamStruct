@@ -4,8 +4,46 @@
         <TargetFramework>net9.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+        <Version>0.1.0</Version>
+        
+        <!-- NuGet Package Configuration -->
+        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+        <PackageId>StreamStruct</PackageId>
+        <Title>StreamStruct</Title>
+        <Authors>djgosnell</Authors>
+        <Product>StreamStruct</Product>
+        <Description>A .NET library for parsing and processing structured binary data from streams using field definition syntax. Provides type-safe parsing with support for variable-length fields and bidirectional communication.</Description>
+        <Summary>Type-safe binary data parsing library for .NET with field definition syntax support</Summary>
+        <PackageTags>binary;parsing;stream;data;serialization;deserialization;protocol;communication</PackageTags>
+        <PackageProjectUrl>https://github.com/djgosnell/StreamStruct</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/djgosnell/StreamStruct</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <Copyright>Copyright (c) 2025 StreamStruct Contributors</Copyright>
+        
+        <!-- Symbols Package Configuration -->
+        <IncludeSymbols>true</IncludeSymbols>
+        <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+        <EmbedUntrackedSources>true</EmbedUntrackedSources>
+        <DebugType>portable</DebugType>
+        
+        <!-- Source Link Configuration -->
+        <PublishRepositoryUrl>true</PublishRepositoryUrl>
+        <EmbedUntrackedSources>true</EmbedUntrackedSources>
+        <IncludeSymbols>true</IncludeSymbols>
+        <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     </PropertyGroup>
+    
     <ItemGroup>
         <InternalsVisibleTo Include="StreamStruct.Tests" />
+    </ItemGroup>
+    
+    <ItemGroup>
+        <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All"/>
+    </ItemGroup>
+    
+    <ItemGroup>
+        <None Include="..\..\README.md" Pack="true" PackagePath="\"/>
     </ItemGroup>
 </Project>

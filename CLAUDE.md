@@ -42,6 +42,12 @@ dotnet test src/StreamStruct.Tests/StreamStruct.Tests.csproj --filter "TestMetho
 dotnet restore src/StreamStruct/StreamStruct.csproj
 ```
 
+### NuGet Package
+```bash
+# Pack NuGet package
+dotnet pack src/StreamStruct/StreamStruct.csproj --configuration Release --output ./artifacts
+```
+
 ## Architecture
 
 ### Core Components
