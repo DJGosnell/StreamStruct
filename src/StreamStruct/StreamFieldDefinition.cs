@@ -33,4 +33,20 @@ internal class StreamFieldDefinition
             _ => throw new ArgumentException($"Unknown type: {type}")
         };
     }
+
+    public static bool IsReservedTypeName(string name)
+    {
+        return name.ToLowerInvariant() switch
+        {
+            "byte" or "sbyte" => true,
+            "short" or "ushort" => true,
+            "int" or "uint" => true,
+            "long" or "ulong" => true,
+            "float" => true,
+            "double" => true,
+            "char" => true,
+            "bool" => true,
+            _ => false
+        };
+    }
 }

@@ -1,7 +1,9 @@
 ﻿<Solution>
   <Folder Name="/github/">
     <File Path="..\.github\workflows\dotnet.yml" />
+    <File Path="..\README.md" />
   </Folder>
   <Project Path="StreamStruct.Tests\StreamStruct.Tests.csproj" Type="Classic C#" />
+  <Project Path="StreamStructSandbox\StreamStructSandbox.csproj" Type="Classic C#" />
   <Project Path="StreamStruct\StreamStruct.csproj" Type="Classic C#" />
 </Solution>

@@ -76,7 +76,7 @@ public class StreamFieldProcessorTests
     [Test]
     public async Task WriteAndRead_AllSupportedTypes_ShouldSucceed()
     {
-        var definition = "[b:byte][sb:sbyte][s:short][us:ushort][i:int][ui:uint][l:long][ul:ulong][f:float][d:double][c:char][bool:bool]";
+        var definition = "[b:byte][sb:sbyte][s:short][us:ushort][i:int][ui:uint][l:long][ul:ulong][f:float][d:double][c:char][flag:bool]";
         var data = new object[] { 
             (byte)255, 
             (sbyte)-128, 
@@ -656,5 +656,33 @@ public class StreamFieldProcessorTests
         // Test missing variable reference
         var missingRefResult = await _clientParser!.ReadAsync("[data:missingVar]").WithTimeout();
         Assert.That(missingRefResult.ErrorCode, Is.EqualTo(ParseError.MissingVariableReference));
+    }
+
+    [Test]
+    public async Task ReadAsync_ReservedFieldName_ShouldFail()
+    {
+        var definitions = new[]
+        {
+            "[byte:int]",
+            "[sbyte:int]", 
+            "[short:int]",
+            "[ushort:int]",
+            "[int:byte]",
+            "[uint:int]",
+            "[long:int]",
+            "[ulong:int]",
+            "[float:int]",
+            "[double:int]",
+            "[char:int]",
+            "[bool:int]"
+        };
+
+        foreach (var definition in definitions)
+        {
+            var readResult = await _clientParser!.ReadAsync(definition).WithTimeout();
+            Assert.That(readResult.Success, Is.False, $"Definition '{definition}' should fail validation");
+            Assert.That(readResult.ErrorCode, Is.EqualTo(ParseError.ReservedFieldName), $"Definition '{definition}' should return ReservedFieldName error");
+            Assert.That(readResult.ErrorMessage, Contains.Substring("Field name cannot be a reserved type name"), $"Definition '{definition}' should have correct error message");
+        }
     }
 }

@@ -20,10 +20,12 @@ public class StreamFieldProcessor
             var fields = ParseStreamDefinition(streamDefinition);
             var results = new object?[fields.Count];
             var parsedValues = new Dictionary<string, object>();
+            var fieldIndexes = new Dictionary<string, int>();
 
             for (int i = 0; i < fields.Count; i++)
             {
                 var field = fields[i];
+                fieldIndexes[field.Name] = i;
                 
                 if (field.IsVariableLength)
                 {
@@ -46,7 +48,7 @@ public class StreamFieldProcessor
                 }
             }
 
-            return ParseResult.CreateSuccess(results);
+            return ParseResult.CreateSuccess(results, fieldIndexes);
         }
         catch (ArgumentException ex) when (ex.Message.Contains("Stream definition cannot be null or empty"))
         {
@@ -71,6 +73,10 @@ public class StreamFieldProcessor
         catch (ArgumentException ex) when (ex.Message.Contains("Unsupported type"))
         {
             return ParseResult.CreateFailure(ParseError.UnsupportedType, ex.Message);
+        }
+        catch (ArgumentException ex) when (ex.Message.Contains("Field name cannot be a reserved type name"))
+        {
+            return ParseResult.CreateFailure(ParseError.ReservedFieldName, ex.Message);
         }
         catch (OperationCanceledException)
         {
@@ -136,6 +142,11 @@ public class StreamFieldProcessor
             if (string.IsNullOrWhiteSpace(fieldName))
             {
                 throw new ArgumentException("Field name cannot be empty", nameof(definition));
+            }
+
+            if (StreamFieldDefinition.IsReservedTypeName(fieldName))
+            {
+                throw new ArgumentException($"Field name cannot be a reserved type name: '{fieldName}'", nameof(definition));
             }
 
             if (string.IsNullOrWhiteSpace(typeOrLength))
