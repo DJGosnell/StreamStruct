@@ -36,11 +36,9 @@ jobs:
       run: dotnet test ${{ env.TEST_PATH }} --configuration Release --no-build --verbosity normal
     
     - name: Create NuGet packages
-      if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
       run: dotnet pack ${{ env.PROJECT_PATH }} --configuration Release --output ./packages
     
     - name: List package files
-      if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
       run: ls -la ./packages/
     
     - name: Publish
@@ -53,7 +51,9 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: streamstruct-${{ github.sha }}
-        path: ./publish
+        path: |
+          - ./publish
+          - ./packages
     
     - name: Upload NuGet packages
       id: upload-nuget
