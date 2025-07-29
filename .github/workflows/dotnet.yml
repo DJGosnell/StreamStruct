@@ -13,7 +13,7 @@ env:
   TEST_PATH: 'src/StreamStruct.Tests/StreamStruct.Tests.csproj'
 
 jobs:
-  build-and-test:
+  build-test-publish:
     runs-on: ubuntu-latest
     outputs:
       artifact-name: ${{ steps.upload.outputs.artifact-name }}
