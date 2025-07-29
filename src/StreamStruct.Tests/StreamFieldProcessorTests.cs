@@ -14,7 +14,9 @@ public class StreamFieldProcessorTests
     {
         _bidirectionalStream = new BidirectionalMemoryStream();
         _serverParser = new StreamFieldProcessor(_bidirectionalStream.Server);
+        //_serverParser.Logger = new ConsoleStreamLogger();
         _clientParser = new StreamFieldProcessor(_bidirectionalStream.Client);
+        //_clientParser.Logger = _serverParser.Logger;
     }
 
     [TearDown]

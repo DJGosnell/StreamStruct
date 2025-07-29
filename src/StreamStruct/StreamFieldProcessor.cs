@@ -12,6 +12,12 @@ public class StreamFieldProcessor
     private readonly Stream _stream;
 
     /// <summary>
+    /// Gets or sets the logger instance for logging stream processing operations.
+    /// When null, no logging will occur.
+    /// </summary>
+    public IStreamLogger? Logger { get; set; }
+
+    /// <summary>
     /// Initializes a new instance of the StreamFieldProcessor class with the specified stream.
     /// </summary>
     /// <param name="stream">The stream to read from and write to.</param>
@@ -29,9 +35,12 @@ public class StreamFieldProcessor
     /// <returns>A ParseResult containing the parsed data or error information.</returns>
     public async Task<ParseResult> ReadAsync(string streamDefinition, CancellationToken cancellationToken = default)
     {
+        Logger?.LogInfo($"Starting read operation with definition: {streamDefinition}");
+        
         var (parseError, fields) = ParseStreamDefinition(streamDefinition);
         if (parseError != ParseError.Success)
         {
+            Logger?.LogError($"[parseError:{parseError}] Failed to parse stream definition");
             return ParseResult.CreateFailure(parseError);
         }
 
@@ -40,6 +49,7 @@ public class StreamFieldProcessor
             var results = new object?[fields!.Count];
             var parsedValues = new Dictionary<string, object>();
             var fieldIndexes = new Dictionary<string, int>();
+            var readValues = new List<string>();
 
             for (int i = 0; i < fields.Count; i++)
             {
@@ -50,45 +60,61 @@ public class StreamFieldProcessor
                 {
                     if (!parsedValues.TryGetValue(field.TypeOrLength, out var lengthValue))
                     {
+                        Logger?.LogError($"[{field.Name}:variable] Missing variable reference '{field.TypeOrLength}'");
                         return ParseResult.CreateFailure(ParseError.MissingVariableReference);
                     }
 
                     var length = Convert.ToInt32(lengthValue);
+                    Logger?.LogDebug($"[{field.Name}:variable] Reading {length} bytes");
                     var buffer = new byte[length];
                     await _stream.ReadExactlyAsync(buffer, cancellationToken);
                     results[i] = buffer;
                     parsedValues[field.Name] = buffer;
+                    Logger?.LogDebug($"[{field.Name}:variable] Successfully read {buffer.Length} bytes");
+                    readValues.Add($"[{buffer.Length}:variable]");
                 }
                 else if (field.IsFixedArray)
                 {
+                    Logger?.LogDebug($"[{field.Name}:{field.BaseType}:{field.FixedCount}] Reading fixed array");
                     var (readError, arrayValue) = await ReadFixedArrayAsync(_stream, field.BaseType, field.FixedCount!.Value, cancellationToken);
                     if (readError != ParseError.Success)
                     {
+                        Logger?.LogError($"[{field.Name}:{field.BaseType}:{field.FixedCount}] Read error: {readError}");
                         return ParseResult.CreateFailure(readError);
                     }
                     results[i] = arrayValue;
                     parsedValues[field.Name] = arrayValue!;
+                    Logger?.LogDebug($"[{field.Name}:{field.BaseType}:{field.FixedCount}] Successfully read array");
+                    readValues.Add($"[{string.Join(",", GetArrayValues(arrayValue))}:{field.BaseType}]");
                 }
                 else
                 {
+                    Logger?.LogDebug($"[{field.Name}:{field.TypeOrLength}] Reading fixed type");
                     var (readError, value) = await ReadFixedTypeAsync(_stream, field.TypeOrLength, cancellationToken);
                     if (readError != ParseError.Success)
                     {
+                        Logger?.LogError($"[{field.Name}:{field.TypeOrLength}] Read error: {readError}");
                         return ParseResult.CreateFailure(readError);
                     }
                     results[i] = value;
                     parsedValues[field.Name] = value!;
+                    Logger?.LogDebug($"[{field.Name}:{field.TypeOrLength}] Successfully read value: {value}");
+                    readValues.Add($"[{value}:{field.TypeOrLength}]");
                 }
             }
 
+            Logger?.LogInfo($"Read values: {string.Join("", readValues)}");
+            Logger?.LogInfo($"Successfully completed read operation with {results.Length} fields");
             return ParseResult.CreateSuccess(results, fieldIndexes);
         }
         catch (OperationCanceledException)
         {
+            Logger?.LogWarning("Read operation was cancelled");
             return ParseResult.CreateFailure(ParseError.OperationCancelled);
         }
-        catch
+        catch (Exception ex)
         {
+            Logger?.LogError($"Stream read error: {ex.Message}");
             return ParseResult.CreateFailure(ParseError.StreamReadError);
         }
     }
@@ -218,19 +244,24 @@ public class StreamFieldProcessor
     /// <returns>true if the data was successfully written; otherwise, false.</returns>
     public async Task<bool> WriteAsync(string streamDefinition, object?[] data, CancellationToken cancellationToken = default)
     {
+        Logger?.LogInfo($"Starting write operation with definition: {streamDefinition}");
+        
         var (parseError, fields) = ParseStreamDefinition(streamDefinition);
         if (parseError != ParseError.Success || fields == null)
         {
+            Logger?.LogError($"[parseError:{parseError}] Failed to parse stream definition");
             return false;
         }
 
         if (data == null)
         {
+            Logger?.LogError("Data array is null");
             return false;
         }
         
         if (fields.Count != data.Length)
         {
+            Logger?.LogError($"Field count ({fields.Count}) does not match data length ({data.Length})");
             return false;
         }
 
@@ -251,6 +282,8 @@ public class StreamFieldProcessor
 
         try
         {
+            var writtenValues = new List<string>();
+            
             for (int i = 0; i < fields.Count; i++)
             {
                 var field = fields[i];
@@ -260,41 +293,56 @@ public class StreamFieldProcessor
                 {
                     if (value is not byte[] byteArray)
                     {
+                        Logger?.LogError($"[{field.Name}:variable] Expected byte array but got {value?.GetType().Name ?? "null"}");
                         return false;
                     }
+                    Logger?.LogDebug($"[{field.Name}:variable] Writing {byteArray.Length} bytes");
                     await _stream.WriteAsync(byteArray, cancellationToken);
+                    Logger?.LogDebug($"[{field.Name}:variable] Successfully wrote {byteArray.Length} bytes");
+                    writtenValues.Add($"[{byteArray.Length}:variable]");
                 }
                 else if (field.IsFixedArray)
                 {
+                    Logger?.LogDebug($"[{field.Name}:{field.BaseType}:{field.FixedCount}] Converting and writing fixed array");
                     var (convertError, bytes) = ConvertArrayToBytes(value, field.BaseType, field.FixedCount!.Value);
                     if (convertError != ParseError.Success || bytes == null)
                     {
+                        Logger?.LogError($"[{field.Name}:{field.BaseType}:{field.FixedCount}] Conversion error: {convertError}");
                         return false;
                     }
                     await _stream.WriteAsync(bytes, cancellationToken);
+                    Logger?.LogDebug($"[{field.Name}:{field.BaseType}:{field.FixedCount}] Successfully wrote {bytes.Length} bytes");
+                    writtenValues.Add($"[{string.Join(",", GetArrayValues(value))}:{field.BaseType}]");
                 }
                 else
                 {
-                    // Cast the value to the specified field type before conversion
+                    Logger?.LogDebug($"[{field.Name}:{field.TypeOrLength}] Converting and writing fixed type value: {value}");
                     var castedValue = CastToFieldType(value, field.TypeOrLength);
                     var (convertError, bytes) = ConvertToBytes(castedValue, field.TypeOrLength);
                     if (convertError != ParseError.Success || bytes == null)
                     {
+                        Logger?.LogError($"[{field.Name}:{field.TypeOrLength}] Conversion error: {convertError}");
                         return false;
                     }
                     await _stream.WriteAsync(bytes, cancellationToken);
+                    Logger?.LogDebug($"[{field.Name}:{field.TypeOrLength}] Successfully wrote {bytes.Length} bytes");
+                    writtenValues.Add($"[{castedValue}:{field.TypeOrLength}]");
                 }
             }
 
             await _stream.FlushAsync(cancellationToken);
+            Logger?.LogInfo($"Written values: {string.Join("", writtenValues)}");
+            Logger?.LogInfo($"Successfully completed write operation with {fields.Count} fields");
             return true;
         }
         catch (OperationCanceledException)
         {
+            Logger?.LogWarning("Write operation was cancelled");
             return false;
         }
-        catch
+        catch (Exception ex)
         {
+            Logger?.LogError($"Stream write error: {ex.Message}");
             return false;
         }
     }
@@ -596,5 +644,25 @@ public class StreamFieldProcessor
     private static bool[] ConvertToBoolArray(byte[] buffer)
     {
         return buffer.Select(b => BitConverter.ToBoolean(new[] { b }, 0)).ToArray();
+    }
+
+    private static IEnumerable<object> GetArrayValues(object? value)
+    {
+        return value switch
+        {
+            byte[] byteArray => byteArray.Cast<object>(),
+            sbyte[] sbyteArray => sbyteArray.Cast<object>(),
+            short[] shortArray => shortArray.Cast<object>(),
+            ushort[] ushortArray => ushortArray.Cast<object>(),
+            int[] intArray => intArray.Cast<object>(),
+            uint[] uintArray => uintArray.Cast<object>(),
+            long[] longArray => longArray.Cast<object>(),
+            ulong[] ulongArray => ulongArray.Cast<object>(),
+            float[] floatArray => floatArray.Cast<object>(),
+            double[] doubleArray => doubleArray.Cast<object>(),
+            char[] charArray => charArray.Cast<object>(),
+            bool[] boolArray => boolArray.Cast<object>(),
+            _ => []
+        };
     }
 }
