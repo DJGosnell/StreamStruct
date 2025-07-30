@@ -10,24 +10,28 @@ class Program
         // Create a processor with your stream
         var stream = new EchoMemoryStream();
         var processor = new StreamFieldProcessor(stream);
+        var definition = "[id:int][name_length:byte][name:name_length]";
 
-        // Define the structure: [fieldName:type]
-        var definition = "[id:int][name_length:byte][name:name_length][flags:int:4]";
+        // Write some data first
+        var nameBytes = "Alice"u8.ToArray();
+        await processor.WriteAsync(definition, [42, (byte)nameBytes.Length, nameBytes]);
 
-        // Write structured data
-        var data = "Alice"u8.ToArray();
-        var flagIds = new[] { 1, 2, 3, 4 };
-        await processor.WriteAsync(definition, [42, (byte)data.Length, data, flagIds]);
+        // Verify the stream contains expected values
+        var expectedValues = new object[] { 41, (byte)2, nameBytes };
+        var (success, errors) = await processor.VerifyAsync(definition, expectedValues);
 
-        // Read it back
-        var result = await processor.ReadAsync(definition);
-        if (result.Success)
+        if (success)
         {
-            result.TryRead<int>("id", out var id); // 42
-            result.TryRead<byte>("name_length", out var nameLength); // 5
-            result.TryRead<byte[]>("name", out var nameBytes); // 5
-            result.TryReadUtf8("name", out var nameData); // Alice
-            result.TryRead<int[]>("flags", out var flagIdData); // [1,2,3,4]
+            Console.WriteLine("Stream verification passed!");
+        }
+        else
+        {
+            foreach (var error in errors)
+            {
+                Console.WriteLine($"Validation error: {error.ErrorMessage}");
+                Console.WriteLine($"  Expected: {error.ExpectedValue}");
+                Console.WriteLine($"  Actual: {error.ActualValue}");
+            }
         }
     }
 }

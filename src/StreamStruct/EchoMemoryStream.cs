@@ -4,6 +4,7 @@ public class EchoMemoryStream : Stream
 {
     private readonly Queue<byte> _buffer = new();
     private bool _disposed;
+    private long _position;
 
     public override bool CanRead => !_disposed;
     public override bool CanSeek => false;
@@ -11,7 +12,7 @@ public class EchoMemoryStream : Stream
     public override long Length => _buffer.Count;
     public override long Position 
     { 
-        get => throw new NotSupportedException();
+        get => _position;
         set => throw new NotSupportedException();
     }
 
@@ -26,6 +27,7 @@ public class EchoMemoryStream : Stream
             buffer[offset + bytesRead] = _buffer.Dequeue();
             bytesRead++;
         }
+        _position += bytesRead;
         return bytesRead;
     }
 

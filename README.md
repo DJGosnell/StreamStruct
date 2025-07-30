@@ -164,6 +164,50 @@ var result = await processor.ReadAsync("[int:byte]");
 ### Error Handling
 When validation fails, `ParseResult` provides detailed error information via `ErrorCode` and `ErrorMessage` properties.
 
+## Stream Verification
+
+The `VerifyAsync` method allows you to validate that stream data matches expected values:
+
+```csharp
+// Create a processor with your stream
+var stream = new EchoMemoryStream();
+var processor = new StreamFieldProcessor(stream);
+var definition = "[id:int][name_length:byte][name:name_length]";
+
+// Write some data first
+var nameBytes = "Alice"u8.ToArray();
+await processor.WriteAsync(definition, [42, (byte)nameBytes.Length, nameBytes]);
+
+// Verify the stream contains expected values
+var expectedValues = new object[] { 41, (byte)2, nameBytes };
+var (success, errors) = await processor.VerifyAsync(definition, expectedValues);
+
+if (success)
+{
+  Console.WriteLine("Stream verification passed!");
+}
+else
+{
+  foreach (var error in errors)
+  {
+    Console.WriteLine($"Validation error: {error.ErrorMessage}");
+    Console.WriteLine($"  Expected: {error.ExpectedValue}");
+    Console.WriteLine($"  Actual: {error.ActualValue}");
+  }
+}
+```
+
+### Verification Features
+
+- **Type-safe validation** with automatic type casting for expected values
+- **Detailed error reporting** with `ValidationError` objects containing:
+  - Stream offset where the error occurred
+  - Field definition that failed
+  - Expected vs actual values
+  - Descriptive error messages
+- **Support for all field types** including variable-length fields and arrays
+- **Comprehensive validation** of field definitions and value types
+
 ## Bidirectional Communication
 
 For testing or in-memory communication:
