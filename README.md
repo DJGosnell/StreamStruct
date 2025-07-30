@@ -133,13 +133,15 @@ await processor.WriteAsync(definition, [data.Length, data]);
 
 ## Field Definition Syntax
 
-Fields are defined using the format: `[fieldName:typeOrLength]`
+Fields are defined using the format: `[fieldName:typeOrLength]` or `[fieldName:type:count]`
 
 ### Examples:
 - `[id:int]` - A 32-bit integer field named "id"
 - `[count:byte]` - An 8-bit unsigned integer field named "count"  
 - `[data:count]` - A variable-length byte array whose size is determined by the "count" field
 - `[temperature:float]` - A 32-bit floating-point field named "temperature"
+- `[flags:int:4]` - A fixed array of 4 integers named "flags"
+- `[samples:float:8]` - A fixed array of 8 floats named "samples"
 
 ## Field Validation
 
