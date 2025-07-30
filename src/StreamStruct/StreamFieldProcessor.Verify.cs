@@ -181,7 +181,8 @@ public partial class StreamFieldProcessor
                     var buffer = new byte[expectedLength];
                     await _stream.ReadExactlyAsync(buffer, cancellationToken);
 
-                    if (!buffer.SequenceEqual(expectedBytes))
+                    bool variableVerified = buffer.SequenceEqual(expectedBytes);
+                    if (!variableVerified)
                     {
                         Logger?.LogError(
                             $"[{field.Name}:variable] Verification failed - read bytes do not match expected");
@@ -198,7 +199,7 @@ public partial class StreamFieldProcessor
                     parsedValues[field.Name] = buffer;
                     currentOffset += expectedLength;
                     Logger?.LogDebug($"[{field.Name}:variable] Successfully verified {buffer.Length} bytes");
-                    verificationResults.Add($"[{buffer.Length}:variable:verified]");
+                    verificationResults.Add($"[{buffer.Length}:variable:{(variableVerified ? "verified" : "failed")}]");
                 }
                 else if (field.IsFixedArray)
                 {
@@ -222,7 +223,8 @@ public partial class StreamFieldProcessor
                         continue;
                     }
 
-                    if (!CompareArrayValues(arrayValue, expectedValue, field.BaseType))
+                    bool arrayVerified = CompareArrayValues(arrayValue, expectedValue, field.BaseType);
+                    if (!arrayVerified)
                     {
                         Logger?.LogError(
                             $"[{field.Name}:{field.BaseType}:{field.FixedCount}] Verification failed - read array does not match expected");
@@ -240,7 +242,7 @@ public partial class StreamFieldProcessor
                     currentOffset += StreamFieldDefinition.GetTypeSize(field.BaseType) * field.FixedCount!.Value;
                     Logger?.LogDebug($"[{field.Name}:{field.BaseType}:{field.FixedCount}] Successfully verified array");
                     verificationResults.Add(
-                        $"[{string.Join(",", GetArrayValues(arrayValue))}:{field.BaseType}:verified]");
+                        $"[{string.Join(",", GetArrayValues(arrayValue))}:{field.BaseType}:{(arrayVerified ? "verified" : "failed")}]");
                 }
                 else
                 {
@@ -263,7 +265,8 @@ public partial class StreamFieldProcessor
                     }
 
                     var castedExpected = CastToFieldType(expectedValue, field.TypeOrLength);
-                    if (!Equals(value, castedExpected))
+                    bool fieldVerified = Equals(value, castedExpected);
+                    if (!fieldVerified)
                     {
                         Logger?.LogError(
                             $"[{field.Name}:{field.TypeOrLength}] Verification failed - read value '{value}' does not match expected '{castedExpected}'");
@@ -280,7 +283,7 @@ public partial class StreamFieldProcessor
                     parsedValues[field.Name] = value!;
                     currentOffset += StreamFieldDefinition.GetTypeSize(field.TypeOrLength);
                     Logger?.LogDebug($"[{field.Name}:{field.TypeOrLength}] Successfully verified value: {value}");
-                    verificationResults.Add($"[{value}:{field.TypeOrLength}:verified]");
+                    verificationResults.Add($"[{value}:{field.TypeOrLength}:{(fieldVerified ? "verified" : "failed")}]");
                 }
             }
 
