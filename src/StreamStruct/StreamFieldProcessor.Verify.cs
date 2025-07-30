@@ -140,10 +140,11 @@ public partial class StreamFieldProcessor
             availableFields.Add(field.Name);
         }
 
+
         try
         {
             var verificationResults = new List<string>();
-            long currentOffset = _stream.Position;
+            var currentOffset = GetStreamPosition();
 
             for (int i = 0; i < fields.Count; i++)
             {
@@ -293,7 +294,7 @@ public partial class StreamFieldProcessor
         {
             Logger?.LogWarning("Read verification operation was cancelled");
             validationErrors.Add(new ValidationError(
-                _stream.Position,
+                GetStreamPosition(),
                 streamDefinition,
                 "operation",
                 "cancelled",
@@ -306,7 +307,7 @@ public partial class StreamFieldProcessor
         {
             Logger?.LogError($"Stream read verification error: {ex.Message}");
             validationErrors.Add(new ValidationError(
-                _stream.Position,
+                GetStreamPosition(),
                 streamDefinition,
                 "stream",
                 ex.Message,

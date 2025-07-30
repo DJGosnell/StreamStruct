@@ -569,4 +569,17 @@ public partial class StreamFieldProcessor
             _ => value.ToString() ?? "null"
         };
     }
+
+    private long GetStreamPosition()
+    {
+        try
+        {
+            return _stream.Position;
+        }
+        catch
+        {
+            // Stream does not allow for stream position accessing.
+            return 0;
+        }
+    }
 }
