@@ -63,7 +63,7 @@ jobs:
         fi
         
         # Generate changelog
-        echo "## Changes" > release_notes.md
+        echo "## Release Notes" > release_notes.md
         echo "" >> release_notes.md
         
         # Get commits with their messages
